@@ -1,16 +1,16 @@
 # cloud_rag_chatbot.py (使用 HuggingFace 替代 OpenAI)
 
 import os
+import streamlit as st
 from langchain_huggingface import HuggingFaceEndpoint  # 使用 HuggingFace
 from langchain.chains import RetrievalQA
 from langchain.prompts import PromptTemplate
-from dotenv import load_dotenv
 
 from document_loader import process_documents
 from embedding_store import create_vector_store, load_vector_store
 
-# 從.env文件加載環境變量
-load_dotenv()
+# 不再需要從.env文件加載環境變量
+# load_dotenv()
 
 def setup_rag_system(rebuild_vector_store=False, model_name="google/flan-t5-large", temperature=0.2, k=2):
     """
@@ -67,7 +67,7 @@ def setup_rag_system(rebuild_vector_store=False, model_name="google/flan-t5-larg
     llm = HuggingFaceEndpoint(
         repo_id=model_name,
         temperature=temperature,
-        huggingfacehub_api_token=os.getenv("HUGGINGFACE_API_TOKEN")
+        huggingfacehub_api_token=st.secrets["HUGGINGFACE_API_TOKEN"]  # 使用 Streamlit secrets
     )
     
     # 創建RAG鏈
