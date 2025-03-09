@@ -4,11 +4,10 @@ import streamlit as st
 import os
 import sys
 
-# 添加 demo 目錄到路徑
-sys.path.append(os.path.dirname(os.path.abspath(__file__)))
-from demo.document_loader import process_documents
-from demo.embedding_store import create_vector_store, load_vector_store
-from demo.cloud_rag_chatbot import setup_rag_system, ask_question  # 使用雲端版本
+# Adjust import paths for Streamlit Cloud
+from document_loader import process_documents
+from embedding_store import create_vector_store, load_vector_store
+from cloud_rag_chatbot import setup_rag_system, ask_question  # 使用雲端版本
 from dotenv import load_dotenv
 
 # 加載環境變量
