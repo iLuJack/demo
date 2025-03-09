@@ -7,7 +7,8 @@ import sys
 # Adjust import paths for Streamlit Cloud
 from document_loader import process_documents
 from embedding_store import create_vector_store, load_vector_store
-from cloud_rag_chatbot import setup_rag_system, ask_question  # 使用雲端版本
+from cloud_rag_chatbot import setup_rag_system, ask_question
+
 from dotenv import load_dotenv
 
 # 加載環境變量
@@ -47,14 +48,6 @@ with st.sidebar:
         index=0
     )
     
-    # 嵌入模型選擇
-    embedding_option = st.selectbox(
-        "選擇嵌入模型",
-        ["OpenAI", "HuggingFace"],
-        index=0
-    )
-    use_openai_embeddings = (embedding_option == "OpenAI")
-    
     # 溫度設置
     temperature = st.slider("溫度", min_value=0.0, max_value=1.0, value=0.2, step=0.1,
                           help="較低的值使回答更確定，較高的值使回答更多樣化")
@@ -71,12 +64,12 @@ with st.sidebar:
     
     st.markdown("---")
     st.markdown("### 關於")
-    st.markdown("此應用使用 OpenAI API、LangChain 和 Streamlit 構建")
+    st.markdown("此應用使用 HuggingFace API、LangChain 和 Streamlit 構建")
     st.markdown("© 2023 台灣法律助手團隊")
 
 # 檢查 API 密鑰
-if not os.getenv("OPENAI_API_KEY"):
-    st.error("請設置 OPENAI_API_KEY 環境變量或在 .env 文件中添加")
+if not os.getenv("HUGGINGFACE_API_TOKEN"):
+    st.error("請設置 HUGGINGFACE_API_TOKEN 環境變量或在 .env 文件中添加")
     st.stop()
 
 # 初始化聊天歷史
@@ -88,7 +81,7 @@ if "sources" not in st.session_state:
 
 # 初始化 RAG 系統
 @st.cache_resource(show_spinner="正在加載 RAG 系統...")
-def load_rag(rebuild=False, model_name="gpt-3.5-turbo", temp=0.2, k=2, use_openai=True):
+def load_rag(rebuild=False, model_name="google/flan-t5-large", temp=0.2, k=2):
     with st.spinner("正在設置 RAG 系統，這可能需要幾分鐘..."):
         return setup_rag_system(
             rebuild_vector_store=rebuild,
@@ -102,8 +95,7 @@ rag_chain = load_rag(
     rebuild=rebuild_db, 
     model_name=model_option, 
     temp=temperature, 
-    k=k_docs,
-    use_openai=use_openai_embeddings
+    k=k_docs
 )
 
 # 顯示聊天歷史

@@ -12,7 +12,7 @@ from embedding_store import create_vector_store, load_vector_store
 # 從.env文件加載環境變量
 load_dotenv()
 
-def setup_rag_system(rebuild_vector_store=False, model_name="google/flan-t5-large", temperature=0.2, k=2, use_openai=False):
+def setup_rag_system(rebuild_vector_store=False, model_name="google/flan-t5-large", temperature=0.2, k=2):
     """
     設置RAG系統，包括文檔處理和向量存儲。
     
@@ -21,7 +21,6 @@ def setup_rag_system(rebuild_vector_store=False, model_name="google/flan-t5-larg
         model_name: 要使用的模型名稱
         temperature: 溫度參數
         k: 檢索的文檔數量
-        use_openai: 是否使用OpenAI嵌入（此處不使用）
     
     Returns:
         RetrievalQA鏈
@@ -32,11 +31,11 @@ def setup_rag_system(rebuild_vector_store=False, model_name="google/flan-t5-larg
         # 處理文檔
         chunks = process_documents()
         # 創建向量存儲
-        vector_store = create_vector_store(chunks, use_openai=False)
+        vector_store = create_vector_store(chunks)
     else:
         print("加載現有向量存儲...")
         # 加載現有向量存儲
-        vector_store = load_vector_store(use_openai=False)
+        vector_store = load_vector_store()
     
     # 創建檢索器
     retriever = vector_store.as_retriever(
