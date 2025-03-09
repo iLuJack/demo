@@ -1,18 +1,12 @@
 # app.py
 
 import streamlit as st
-import os
-import sys
 
 # Adjust import paths for Streamlit Cloud
-from document_loader import process_documents
-from embedding_store import create_vector_store, load_vector_store
+from document_loader import process_documents  # Used in setup_rag_system
+from embedding_store import create_vector_store, load_vector_store  # Used in setup_rag_system
 from cloud_rag_chatbot import setup_rag_system, ask_question
 
-from dotenv import load_dotenv
-
-# 加載環境變量
-load_dotenv()
 
 # 設置頁面配置和標題
 st.set_page_config(
@@ -68,7 +62,7 @@ with st.sidebar:
     st.markdown("© 2023 台灣法律助手團隊")
 
 # 檢查 API 密鑰
-if not os.getenv("HUGGINGFACE_API_TOKEN"):
+if not st.secrets.get("HUGGINGFACE_API_TOKEN"):
     st.error("請設置 HUGGINGFACE_API_TOKEN 環境變量或在 .env 文件中添加")
     st.stop()
 
