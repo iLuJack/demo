@@ -3,7 +3,7 @@
 import os
 import time
 import streamlit as st
-from langchain_community.llms import HuggingFaceHub
+from langchain_huggingface import HuggingFaceEndpoint  # 更新導入
 from langchain.chains import RetrievalQA
 from langchain.prompts import PromptTemplate
 
@@ -28,13 +28,13 @@ def setup_rag_system(rebuild_vector_store=False, model_name=None, temperature=0.
     Returns:
         RetrievalQA鏈
     """
-    # 更新模型列表，移除不可靠的模型
+    # 更新模型列表，使用更可靠的模型
     models_to_try = [
+        "bigscience/bloom-1b7",      # 首選模型
         "google/flan-t5-large",      # 多語言模型，支持中文
         "google/flan-t5-base",       # 較小的模型，更可能可用
         "facebook/bart-large-cnn",   # 另一個可能的備選
         "google/flan-t5-small",      # 最小的模型，最可能可用
-        "facebook/bart-base"         # 備用選項
     ]
     
     # 如果指定了模型，將其放在列表最前面
@@ -66,7 +66,7 @@ def setup_rag_system(rebuild_vector_store=False, model_name=None, temperature=0.
         search_kwargs={"k": k}
     )
     
-    # 創建自定義提示模板
+    # 創建自定義提示模板 - 更明確的指示
     template = """
     你是一個專業的台灣法律助手。使用以下上下文來回答最後的問題。
     如果你不知道答案，就直說不知道，不要試圖編造答案。
@@ -77,7 +77,7 @@ def setup_rag_system(rebuild_vector_store=False, model_name=None, temperature=0.
     
     問題: {question}
     
-    答案:
+    請提供詳細的回答:
     """
     
     prompt = PromptTemplate(
@@ -97,22 +97,26 @@ def setup_rag_system(rebuild_vector_store=False, model_name=None, temperature=0.
         for retry in range(max_retries):
             try:
                 print(f"嘗試使用模型: {model} (嘗試 {retry+1}/{max_retries})")
-                llm = HuggingFaceHub(
+                
+                # 使用更新的 HuggingFaceEndpoint 類
+                llm = HuggingFaceEndpoint(
                     repo_id=model,
                     huggingfacehub_api_token=api_token,
                     model_kwargs={
                         "temperature": temperature,
-                        "max_new_tokens": 250,  # 確保不超過 API 限制
+                        "max_new_tokens": 250,  # 增加生成的令牌數
                         "top_p": 0.9,
                     }
                 )
                 
-                # 測試模型是否可用
-                _ = llm.invoke("測試連接")
+                # 測試模型是否可用 - 使用更明確的測試提示
+                test_response = llm.invoke("請簡單介紹台灣的法律制度")
                 print(f"成功連接到模型: {model}")
+                print(f"測試回應: {test_response[:50]}...")  # 打印部分回應以確認
                 
                 # 更新模型名稱以便在UI中顯示
-                st.session_state.current_model = model
+                if hasattr(st, 'session_state'):
+                    st.session_state.current_model = model
                 break
                 
             except Exception as e:
@@ -141,13 +145,22 @@ def setup_rag_system(rebuild_vector_store=False, model_name=None, temperature=0.
     
     return rag_chain
 
-# 其餘函數保持不變
+# 修改問答函數以添加更多錯誤處理
 def ask_question(rag_chain, question):
     """向RAG系統提問"""
-    response = rag_chain.invoke({"query": question})
-    answer = response["result"]
-    source_docs = response["source_documents"]
-    return answer, source_docs
+    try:
+        response = rag_chain.invoke({"query": question})
+        answer = response.get("result", "")
+        
+        # 檢查回答是否為空
+        if not answer or answer.strip() == "":
+            answer = "抱歉，我無法生成回答。請嘗試重新表述您的問題，或者查看來源文檔以獲取相關信息。"
+        
+        source_docs = response.get("source_documents", [])
+        return answer, source_docs
+    except Exception as e:
+        print(f"生成回答時出錯: {e}")
+        return f"生成回答時出錯: {str(e)}", []
 
 # Add this code at the bottom of the file
 if __name__ == "__main__":

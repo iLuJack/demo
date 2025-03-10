@@ -6,6 +6,7 @@ sys.modules['sqlite3'] = sys.modules.pop('pysqlite3')
 import streamlit as st
 import os
 import shutil
+import time
 
 # Adjust import paths for Streamlit Cloud
 from document_loader import process_documents
@@ -82,20 +83,35 @@ if not os.path.exists("./chroma_db") and os.path.exists("./pre_built_chroma_db")
 @st.cache_resource(show_spinner="正在加載 RAG 系統...")
 def load_rag(rebuild=False, temp=0.2, k=2):
     with st.spinner("正在設置 RAG 系統，這可能需要幾分鐘..."):
-        return setup_rag_system(
-            rebuild_vector_store=rebuild,
-            model_name=None,  # 使用默認模型列表
-            temperature=temp,
-            k=k,
-            api_token=st.secrets["HUGGINGFACE_API_TOKEN"]
-        )
+        try:
+            return setup_rag_system(
+                rebuild_vector_store=rebuild,
+                model_name="bigscience/bloom-1b7",  # 嘗試使用 bloom-1b7
+                temperature=temp,
+                k=k,
+                api_token=st.secrets["HUGGINGFACE_API_TOKEN"]
+            )
+        except Exception as e:
+            st.error(f"加載 RAG 系統時出錯: {str(e)}")
+            # 如果出錯，嘗試使用其他模型
+            return setup_rag_system(
+                rebuild_vector_store=rebuild,
+                model_name=None,  # 使用默認模型列表
+                temperature=temp,
+                k=k,
+                api_token=st.secrets["HUGGINGFACE_API_TOKEN"]
+            )
 
 # 加載 RAG 系統
-rag_chain = load_rag(
-    rebuild=rebuild_db, 
-    temp=temperature, 
-    k=k_docs
-)
+try:
+    rag_chain = load_rag(
+        rebuild=rebuild_db, 
+        temp=temperature, 
+        k=k_docs
+    )
+except Exception as e:
+    st.error(f"無法加載 RAG 系統: {str(e)}")
+    st.stop()
 
 # 顯示聊天歷史
 chat_container = st.container()
@@ -136,9 +152,16 @@ if user_input:
         
         # 獲取回答
         try:
+            # 添加超時處理
+            start_time = time.time()
             response = rag_chain.invoke({"query": user_input})
-            answer = response["result"]
-            source_docs = response["source_documents"]
+            answer = response.get("result", "")
+            
+            # 檢查回答是否為空
+            if not answer or answer.strip() == "":
+                answer = "抱歉，我無法生成回答。請嘗試重新表述您的問題，或者查看來源文檔以獲取相關信息。"
+            
+            source_docs = response.get("source_documents", [])
             
             # 顯示回答
             message_placeholder.markdown(answer)
