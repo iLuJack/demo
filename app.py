@@ -7,6 +7,8 @@ import streamlit as st
 import os
 import shutil
 import time
+import threading
+import queue
 
 # Adjust import paths for Streamlit Cloud
 from document_loader import process_documents
@@ -63,8 +65,7 @@ with st.sidebar:
 
 # 檢查 API 密鑰
 if not st.secrets.get("HUGGINGFACE_API_TOKEN"):
-    st.error("請設置 HUGGINGFACE_API_TOKEN 環境變量或在 .env 文件中添加")
-    st.stop()
+    st.warning("未設置 HUGGINGFACE_API_TOKEN 環境變量，將嘗試使用本地模型或純文檔搜索模式")
 
 # 初始化聊天歷史
 if "messages" not in st.session_state:
@@ -80,41 +81,35 @@ if not os.path.exists("./chroma_db") and os.path.exists("./pre_built_chroma_db")
         shutil.copytree("./pre_built_chroma_db", "./chroma_db")
 
 # 初始化 RAG 系統
-@st.cache_resource(show_spinner="正在加載 RAG 系統...")
-def load_rag(rebuild=False, temp=0.2, k=2):
-    with st.spinner("正在設置 RAG 系統，這可能需要幾分鐘..."):
+if "rag_chain" not in st.session_state or rebuild_db:
+    with st.spinner("正在加載 RAG 系統..."):
         try:
-            return setup_rag_system(
-                rebuild_vector_store=rebuild,
-                model_name="bigscience/bloom-1b7",  # 嘗試使用 bloom-1b7
-                temperature=temp,
-                k=k,
-                api_token=st.secrets["HUGGINGFACE_API_TOKEN"]
+            # 獲取 API 令牌
+            api_token = st.secrets.get("HUGGINGFACE_API_TOKEN")
+            
+            # 設置 RAG 系統
+            rag_chain = setup_rag_system(
+                rebuild_vector_store=rebuild_db,
+                temperature=temperature,
+                k=k_docs,
+                api_token=api_token,
+                max_retries=2  # 減少重試次數以加快加載
             )
+            
+            # 保存到 session state
+            st.session_state.rag_chain = rag_chain
+            
         except Exception as e:
-            st.error(f"加載 RAG 系統時出錯: {str(e)}")
-            # 如果出錯，嘗試使用其他模型
-            return setup_rag_system(
-                rebuild_vector_store=rebuild,
-                model_name=None,  # 使用默認模型列表
-                temperature=temp,
-                k=k,
-                api_token=st.secrets["HUGGINGFACE_API_TOKEN"]
-            )
+            st.error(f"無法加載 RAG 系統: {str(e)}")
+            st.stop()
 
-# 加載 RAG 系統
-try:
-    rag_chain = load_rag(
-        rebuild=rebuild_db, 
-        temp=temperature, 
-        k=k_docs
-    )
-except Exception as e:
-    st.error(f"無法加載 RAG 系統: {str(e)}")
-    st.stop()
+# 獲取 RAG 系統
+rag_chain = st.session_state.rag_chain
+
+# 創建聊天容器
+chat_container = st.container()
 
 # 顯示聊天歷史
-chat_container = st.container()
 with chat_container:
     for i, message in enumerate(st.session_state.messages):
         with st.chat_message(message["role"]):
@@ -152,16 +147,41 @@ if user_input:
         
         # 獲取回答
         try:
-            # 添加超時處理
+            # 使用線程和隊列來處理可能的超時
+            result_queue = queue.Queue()
+            
+            def run_query():
+                try:
+                    result = ask_question(rag_chain, user_input)
+                    result_queue.put(("success", result))
+                except Exception as e:
+                    result_queue.put(("error", str(e)))
+            
+            # 啟動線程
+            query_thread = threading.Thread(target=run_query)
+            query_thread.start()
+            
+            # 等待結果，最多30秒
             start_time = time.time()
-            response = rag_chain.invoke({"query": user_input})
-            answer = response.get("result", "")
+            max_wait_time = 30  # 秒
             
-            # 檢查回答是否為空
-            if not answer or answer.strip() == "":
-                answer = "抱歉，我無法生成回答。請嘗試重新表述您的問題，或者查看來源文檔以獲取相關信息。"
+            while time.time() - start_time < max_wait_time:
+                if not result_queue.empty():
+                    status, result = result_queue.get()
+                    break
+                time.sleep(0.1)
+            else:
+                # 超時
+                status = "timeout"
+                result = ("查詢超時。系統將嘗試使用純文檔搜索模式。", [])
             
-            source_docs = response.get("source_documents", [])
+            # 處理結果
+            if status == "success":
+                answer, source_docs = result
+            else:
+                # 如果出錯或超時，顯示錯誤消息
+                answer = f"發生錯誤: {result}" if status == "error" else result[0]
+                source_docs = []
             
             # 顯示回答
             message_placeholder.markdown(answer)
@@ -172,11 +192,14 @@ if user_input:
                 sources_data = []
                 with st.expander("查看來源文檔"):
                     for i, doc in enumerate(source_docs):
-                        st.markdown(f"**來源 {i+1}**: {doc.metadata['source']}")
-                        st.markdown(f"```\n{doc.page_content[:300]}...\n```")
+                        source_name = doc.metadata['source'] if hasattr(doc, 'metadata') and 'source' in doc.metadata else "未知來源"
+                        content = doc.page_content if hasattr(doc, 'page_content') else str(doc)
+                        
+                        st.markdown(f"**來源 {i+1}**: {source_name}")
+                        st.markdown(f"```\n{content[:300]}...\n```")
                         sources_data.append({
-                            "source": doc.metadata['source'],
-                            "content": doc.page_content
+                            "source": source_name,
+                            "content": content
                         })
                 
                 # 保存來源以便歷史顯示
