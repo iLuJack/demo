@@ -17,12 +17,12 @@ from cloud_rag_chatbot import setup_rag_system, ask_question
 
 # 設置頁面配置和標題
 st.set_page_config(
-    page_title="台灣法律助手",
+    page_title="法律小幫手",
     page_icon="⚖️",
     layout="wide"
 )
 
-st.title("台灣法律助手 🇹🇼⚖️")
+st.title("臺大管院測試法律小幫手 ⚖️")
 st.markdown("*基於 RAG 技術的台灣法律問答系統*")
 
 # 初始化 session state 變量
@@ -61,7 +61,7 @@ with st.sidebar:
     st.markdown("---")
     st.markdown("### 關於")
     st.markdown("此應用使用 HuggingFace API、LangChain 和 Streamlit 構建")
-    st.markdown("© 2023 台灣法律助手團隊")
+    st.markdown("© 2025 臺大管院測試法律助手")
 
 # 檢查 API 密鑰
 if not st.secrets.get("HUGGINGFACE_API_TOKEN"):
