@@ -12,7 +12,7 @@ from embedding_store import create_vector_store, load_vector_store
 # 不再需要從.env文件加載環境變量
 # load_dotenv()
 
-def setup_rag_system(rebuild_vector_store=False, model_name="google/flan-t5-large", temperature=0.1, k=2):
+def setup_rag_system(rebuild_vector_store=False, model_name="google/flan-t5-large", temperature=0.1, k=2, api_token=None):
     """
     設置RAG系統，包括文檔處理和向量存儲。
     
@@ -21,6 +21,7 @@ def setup_rag_system(rebuild_vector_store=False, model_name="google/flan-t5-larg
         model_name: 要使用的模型名稱
         temperature: 溫度參數
         k: 檢索的文檔數量
+        api_token: HuggingFace API 令牌，如果為 None，則嘗試從環境變量獲取
     
     Returns:
         RetrievalQA鏈
@@ -62,14 +63,19 @@ def setup_rag_system(rebuild_vector_store=False, model_name="google/flan-t5-larg
         input_variables=["context", "question"]
     )
     
+    # 獲取 API 令牌，優先使用傳入的參數
+    if api_token is None:
+        # 嘗試從環境變量獲取
+        api_token = os.environ.get("HUGGINGFACE_API_TOKEN")
+    
     # 初始化 HuggingFace 語言模型
     # 使用支持中文的模型，如 BLOOM 或 mT5
     llm = HuggingFaceHub(
         repo_id=model_name,
-        huggingfacehub_api_token=st.secrets["HUGGINGFACE_API_TOKEN"],
+        huggingfacehub_api_token=api_token,
         model_kwargs={
             "temperature": temperature,
-            "max_new_tokens": 250,
+            "max_new_tokens": 250,  # 確保不超過 API 限制
             "top_p": 0.9,
         }
     )

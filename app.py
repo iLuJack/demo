@@ -170,3 +170,31 @@ if user_input:
             # 添加錯誤消息到聊天歷史
             st.session_state.messages.append({"role": "assistant", "content": error_msg})
             st.session_state.sources.append([])
+
+def main():
+    st.title("台灣法律助手")
+    
+    # Initialize session state variables properly
+    if "rag_chain" not in st.session_state:
+        with st.spinner("初始化 RAG 系統..."):
+            # Pass the API token from st.secrets here
+            api_token = st.secrets["HUGGINGFACE_API_TOKEN"]
+            st.session_state.rag_chain = setup_rag_system(api_token=api_token)
+    
+    # Rest of your app logic
+    user_question = st.text_input("請輸入您的法律問題:")
+    
+    if user_question:
+        with st.spinner("正在處理您的問題..."):
+            answer, sources = ask_question(st.session_state.rag_chain, user_question)
+        
+        st.subheader("回答:")
+        st.write(answer)
+        
+        st.subheader("來源文檔:")
+        for i, doc in enumerate(sources):
+            with st.expander(f"文檔 {i+1}"):
+                st.write(doc.page_content)
+
+if __name__ == "__main__":
+    main()
