@@ -5,7 +5,7 @@ from langchain_community.vectorstores import Chroma
 import os
 import shutil
 
-def create_vector_store(chunks, persist_directory="/tmp/chroma_db"):
+def create_vector_store(chunks, persist_directory="./chroma_db"):
     """
     從文檔塊創建向量存儲。
     

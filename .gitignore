@@ -1,5 +1,6 @@
 # code
 ollama_rag_chatbot.py
+cloud_rag_chatbot.py
 test-token.py
 
 # data
@@ -7,6 +8,7 @@ chroma_db
 
 # env
 .env
+.tool-versions
 
 # cache
 __pycache__
