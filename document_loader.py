@@ -1,7 +1,7 @@
 # document_loader.py
 
 from langchain_community.document_loaders import TextLoader
-from langchain.text_splitter import RecursiveCharacterTextSplitter
+from langchain_text_splitters import RecursiveCharacterTextSplitter
 import os
 
 def load_documents(directory_path):
@@ -9,7 +9,7 @@ def load_documents(directory_path):
     從指定目錄加載所有文本文檔。
     """
     documents = []
-    
+
     # 獲取目錄中的所有txt文件
     for filename in os.listdir(directory_path):
         if filename.endswith('.txt'):
@@ -21,7 +21,7 @@ def load_documents(directory_path):
                 print(f"已加載文檔: {filename}")
             except Exception as e:
                 print(f"加載 {filename} 時出錯: {e}")
-    
+
     return documents
 
 def split_documents(documents):
@@ -37,11 +37,11 @@ def split_documents(documents):
         # 繁體中文標點符號
         separators=["\n\n", "\n", "。", "！", "？", "，", "；", "：", "　", " ", ""]
     )
-    
+
     # 將文檔分割成塊
     chunks = text_splitter.split_documents(documents)
     print(f"將 {len(documents)} 個文檔分割成 {len(chunks)} 個塊")
-    
+
     return chunks
 
 def process_documents(directory_path="./data"):
@@ -50,16 +50,16 @@ def process_documents(directory_path="./data"):
     """
     # 加載文檔
     documents = load_documents(directory_path)
-    
+
     # 分割成塊
     chunks = split_documents(documents)
-    
+
     return chunks
 
 if __name__ == "__main__":
     # 測試文檔加載和處理
     chunks = process_documents()
-    
+
     # 打印樣本塊以驗證
     if chunks:
         print("\n樣本塊內容:")

@@ -88,3 +88,27 @@ def ask_question(rag_chain, question):
     answer = response["result"]
     source_docs = response["source_documents"]
     return answer, source_docs
+
+# Add this code at the bottom of the file
+if __name__ == "__main__":
+    print("初始化 RAG 系統...")
+    rag_chain = setup_rag_system()
+    print("RAG 系統已準備就緒！")
+    
+    # Interactive mode for testing
+    while True:
+        user_question = input("\n請輸入您的法律問題 (輸入 'exit' 退出): ")
+        if user_question.lower() == 'exit':
+            break
+            
+        print("\n正在處理您的問題...")
+        answer, sources = ask_question(rag_chain, user_question)
+        
+        print("\n回答:")
+        print(answer)
+        
+        print("\n來源文檔:")
+        for i, doc in enumerate(sources):
+            print(f"文檔 {i+1}:")
+            print(doc.page_content[:200] + "..." if len(doc.page_content) > 200 else doc.page_content)
+            print()
