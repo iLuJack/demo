@@ -5,72 +5,43 @@ from langchain_community.vectorstores import Chroma
 import os
 import shutil
 
-def create_vector_store(chunks, persist_directory="./chroma_db"):
+def create_vector_store(chunks):
     """
-    從文檔塊創建向量存儲。
-    
-    Args:
-        chunks: 文檔塊列表
-        persist_directory: 存儲向量數據庫的目錄
-    
-    Returns:
-        Chroma向量存儲實例
+    創建向量存儲以便高效檢索。
     """
-    # 檢查是否存在舊的向量存儲
-    if os.path.exists(persist_directory):
-        print(f"檢測到現有向量存儲，正在刪除 {persist_directory} 目錄...")
-        # 刪除舊的向量存儲以避免維度不匹配問題
-        shutil.rmtree(persist_directory)
-        print("舊向量存儲已刪除")
-    
-    # 初始化嵌入模型
-    # 使用支援繁體中文的公開模型
-    embedding_model = HuggingFaceEmbeddings(
-        model_name="shibing624/text2vec-base-chinese-paraphrase"  # 支持繁體中文的模型
-    )
-    
     print("創建向量存儲...")
     
-    # 創建持久化Chroma向量存儲
-    vector_store = Chroma.from_documents(
-        documents=chunks,
-        embedding=embedding_model,
-        persist_directory=persist_directory
+    # Fix the deprecation warning by using the correct import
+    from langchain_huggingface import HuggingFaceEmbeddings
+    
+    # 使用繁體中文優化的嵌入模型
+    embedding_model = HuggingFaceEmbeddings(
+        model_name="shibing624/text2vec-base-chinese"
     )
     
-    # 將向量存儲持久化到磁盤
-    vector_store.persist()
-    print(f"向量存儲已創建並保存到 {persist_directory}")
+    # Use FAISS instead of Chroma
+    from langchain_community.vectorstores import FAISS
     
+    vector_store = FAISS.from_documents(
+        documents=chunks,
+        embedding=embedding_model
+    )
+    
+    # Save the FAISS index
+    vector_store.save_local("faiss_index")
+    
+    print(f"向量存儲已創建，包含 {len(chunks)} 個文檔")
     return vector_store
 
-def load_vector_store(persist_directory="./chroma_db"):
-    """
-    從磁盤加載現有的向量存儲。
+def load_vector_store():
+    from langchain_community.vectorstores import FAISS
+    from langchain_huggingface import HuggingFaceEmbeddings
     
-    Args:
-        persist_directory: 保存向量存儲的目錄
-    
-    Returns:
-        Chroma向量存儲實例
-    """
-    # 檢查目錄是否存在
-    if not os.path.exists(persist_directory):
-        raise ValueError(f"向量存儲目錄 {persist_directory} 不存在")
-    
-    # 初始化嵌入模型（必須與創建時使用的相同）
     embedding_model = HuggingFaceEmbeddings(
-        model_name="shibing624/text2vec-base-chinese-paraphrase"  # 支持繁體中文的模型
+        model_name="shibing624/text2vec-base-chinese"
     )
     
-    # 加載向量存儲
-    vector_store = Chroma(
-        persist_directory=persist_directory,
-        embedding_function=embedding_model
-    )
-    
-    print(f"已從 {persist_directory} 加載向量存儲")
-    return vector_store
+    return FAISS.load_local("faiss_index", embedding_model)
 
 if __name__ == "__main__":
     # 測試向量存儲創建
