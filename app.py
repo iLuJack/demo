@@ -4,12 +4,13 @@ import sys
 sys.modules['sqlite3'] = sys.modules.pop('pysqlite3')
 
 import streamlit as st
+import os
+import shutil
 
 # Adjust import paths for Streamlit Cloud
-from document_loader import process_documents  # Used in setup_rag_system
-from embedding_store import create_vector_store, load_vector_store  # Used in setup_rag_system
+from document_loader import process_documents
+from embedding_store import create_vector_store, load_vector_store
 from cloud_rag_chatbot import setup_rag_system, ask_question
-
 
 # 設置頁面配置和標題
 st.set_page_config(
@@ -33,17 +34,8 @@ with st.sidebar:
     show_sources = st.checkbox("顯示來源文檔", value=True,
                              help="顯示回答的來源文檔")
     
-    # 模型選擇
-    model_option = st.selectbox(
-        "選擇 LLM 模型",
-        [
-            "google/flan-t5-large",  # 多語言模型
-            "bigscience/bloom-1b7",  # 支持中文
-            "BAAI/bge-large-zh-v1.5",  # 中文模型
-            "fnlp/bart-base-chinese"  # 中文模型
-        ],
-        index=0
-    )
+    # 移除模型選擇，固定使用 bloom-1b7
+    st.info("使用模型: bigscience/bloom-1b7 (支持中文)")
     
     # 溫度設置
     temperature = st.slider("溫度", min_value=0.0, max_value=1.0, value=0.2, step=0.1,
@@ -76,21 +68,27 @@ if "messages" not in st.session_state:
 if "sources" not in st.session_state:
     st.session_state.sources = []
 
+# 檢查預構建的向量存儲
+if not os.path.exists("./chroma_db") and os.path.exists("./pre_built_chroma_db"):
+    with st.spinner("正在加載預構建的向量數據庫..."):
+        # 複製預構建的數據庫到預期位置
+        shutil.copytree("./pre_built_chroma_db", "./chroma_db")
+
 # 初始化 RAG 系統
 @st.cache_resource(show_spinner="正在加載 RAG 系統...")
-def load_rag(rebuild=False, model_name="google/flan-t5-large", temp=0.2, k=2):
+def load_rag(rebuild=False, temp=0.2, k=2):
     with st.spinner("正在設置 RAG 系統，這可能需要幾分鐘..."):
         return setup_rag_system(
             rebuild_vector_store=rebuild,
-            model_name=model_name,
+            model_name="bigscience/bloom-1b7",  # 固定使用 bloom-1b7
             temperature=temp,
-            k=k
+            k=k,
+            api_token=st.secrets["HUGGINGFACE_API_TOKEN"]
         )
 
 # 加載 RAG 系統
 rag_chain = load_rag(
     rebuild=rebuild_db, 
-    model_name=model_option, 
     temp=temperature, 
     k=k_docs
 )
@@ -170,31 +168,3 @@ if user_input:
             # 添加錯誤消息到聊天歷史
             st.session_state.messages.append({"role": "assistant", "content": error_msg})
             st.session_state.sources.append([])
-
-def main():
-    st.title("台灣法律助手")
-    
-    # Initialize session state variables properly
-    if "rag_chain" not in st.session_state:
-        with st.spinner("初始化 RAG 系統..."):
-            # Pass the API token from st.secrets here
-            api_token = st.secrets["HUGGINGFACE_API_TOKEN"]
-            st.session_state.rag_chain = setup_rag_system(api_token=api_token)
-    
-    # Rest of your app logic
-    user_question = st.text_input("請輸入您的法律問題:")
-    
-    if user_question:
-        with st.spinner("正在處理您的問題..."):
-            answer, sources = ask_question(st.session_state.rag_chain, user_question)
-        
-        st.subheader("回答:")
-        st.write(answer)
-        
-        st.subheader("來源文檔:")
-        for i, doc in enumerate(sources):
-            with st.expander(f"文檔 {i+1}"):
-                st.write(doc.page_content)
-
-if __name__ == "__main__":
-    main()

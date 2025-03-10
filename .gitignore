@@ -4,7 +4,7 @@ cloud_rag_chatbot.py
 test-token.py
 
 # data
-chroma_db
+# chroma_db
 
 # env
 .env
