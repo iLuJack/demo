@@ -22,6 +22,10 @@ st.set_page_config(
 st.title("台灣法律助手 🇹🇼⚖️")
 st.markdown("*基於 RAG 技術的台灣法律問答系統*")
 
+# 初始化 session state 變量
+if "current_model" not in st.session_state:
+    st.session_state.current_model = "正在連接..."
+
 # 側邊欄配置
 with st.sidebar:
     st.header("系統設置")
@@ -34,8 +38,8 @@ with st.sidebar:
     show_sources = st.checkbox("顯示來源文檔", value=True,
                              help="顯示回答的來源文檔")
     
-    # 移除模型選擇，固定使用 bloom-1b7
-    st.info("使用模型: bigscience/bloom-1b7 (支持中文)")
+    # 顯示當前使用的模型
+    st.info(f"使用模型: {st.session_state.current_model}")
     
     # 溫度設置
     temperature = st.slider("溫度", min_value=0.0, max_value=1.0, value=0.2, step=0.1,
@@ -80,7 +84,7 @@ def load_rag(rebuild=False, temp=0.2, k=2):
     with st.spinner("正在設置 RAG 系統，這可能需要幾分鐘..."):
         return setup_rag_system(
             rebuild_vector_store=rebuild,
-            model_name="bigscience/bloom-1b7",  # 固定使用 bloom-1b7
+            model_name=None,  # 使用默認模型列表
             temperature=temp,
             k=k,
             api_token=st.secrets["HUGGINGFACE_API_TOKEN"]

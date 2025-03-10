@@ -13,13 +13,13 @@ from embedding_store import create_vector_store, load_vector_store
 # 不再需要從.env文件加載環境變量
 # load_dotenv()
 
-def setup_rag_system(rebuild_vector_store=False, model_name="bigscience/bloom-1b7", temperature=0.1, k=2, api_token=None, max_retries=3):
+def setup_rag_system(rebuild_vector_store=False, model_name=None, temperature=0.1, k=2, api_token=None, max_retries=3):
     """
     設置RAG系統，包括文檔處理和向量存儲。
     
     Args:
         rebuild_vector_store: 是否從頭重建向量存儲
-        model_name: 要使用的模型名稱 (默認為 bloom-1b7)
+        model_name: 要使用的模型名稱 (如果為None，將使用預設模型列表)
         temperature: 溫度參數
         k: 檢索的文檔數量
         api_token: HuggingFace API 令牌，如果為 None，則嘗試從環境變量獲取
@@ -28,14 +28,18 @@ def setup_rag_system(rebuild_vector_store=False, model_name="bigscience/bloom-1b
     Returns:
         RetrievalQA鏈
     """
-    # 強制使用 bloom-1b7 模型
-    primary_model = "bigscience/bloom-1b7"
-    # 備用模型列表，如果主要模型不可用
-    backup_models = [
-        "google/flan-t5-large",  # 多語言模型
-        "facebook/bart-large-cnn",  # 另一個可能的備選
-        "google/flan-t5-base"  # 較小的模型，更可能可用
+    # 更新模型列表，移除不可靠的模型
+    models_to_try = [
+        "google/flan-t5-large",      # 多語言模型，支持中文
+        "google/flan-t5-base",       # 較小的模型，更可能可用
+        "facebook/bart-large-cnn",   # 另一個可能的備選
+        "google/flan-t5-small",      # 最小的模型，最可能可用
+        "facebook/bart-base"         # 備用選項
     ]
+    
+    # 如果指定了模型，將其放在列表最前面
+    if model_name and model_name not in models_to_try:
+        models_to_try.insert(0, model_name)
     
     # 檢查向量存儲是否存在
     if rebuild_vector_store or not os.path.exists("./chroma_db"):
@@ -88,7 +92,6 @@ def setup_rag_system(rebuild_vector_store=False, model_name="bigscience/bloom-1b
     
     # 嘗試初始化 HuggingFace 語言模型，如果失敗則嘗試備用模型
     llm = None
-    models_to_try = [primary_model] + backup_models
     
     for attempt, model in enumerate(models_to_try):
         for retry in range(max_retries):
@@ -107,6 +110,9 @@ def setup_rag_system(rebuild_vector_store=False, model_name="bigscience/bloom-1b
                 # 測試模型是否可用
                 _ = llm.invoke("測試連接")
                 print(f"成功連接到模型: {model}")
+                
+                # 更新模型名稱以便在UI中顯示
+                st.session_state.current_model = model
                 break
                 
             except Exception as e:
