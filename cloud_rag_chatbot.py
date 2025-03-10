@@ -2,7 +2,7 @@
 
 import os
 import streamlit as st
-from langchain_huggingface import HuggingFaceEndpoint  # 使用 HuggingFace
+from langchain_community.llms import HuggingFaceHub
 from langchain.chains import RetrievalQA
 from langchain.prompts import PromptTemplate
 
@@ -12,7 +12,7 @@ from embedding_store import create_vector_store, load_vector_store
 # 不再需要從.env文件加載環境變量
 # load_dotenv()
 
-def setup_rag_system(rebuild_vector_store=False, model_name="google/flan-t5-large", temperature=0.2, k=2):
+def setup_rag_system(rebuild_vector_store=False, model_name="google/flan-t5-large", temperature=0.1, k=2):
     """
     設置RAG系統，包括文檔處理和向量存儲。
     
@@ -64,10 +64,14 @@ def setup_rag_system(rebuild_vector_store=False, model_name="google/flan-t5-larg
     
     # 初始化 HuggingFace 語言模型
     # 使用支持中文的模型，如 BLOOM 或 mT5
-    llm = HuggingFaceEndpoint(
+    llm = HuggingFaceHub(
         repo_id=model_name,
-        temperature=temperature,
-        huggingfacehub_api_token=st.secrets["HUGGINGFACE_API_TOKEN"]  # 使用 Streamlit secrets
+        huggingfacehub_api_token=st.secrets["HUGGINGFACE_API_TOKEN"],
+        model_kwargs={
+            "temperature": temperature,
+            "max_new_tokens": 250,
+            "top_p": 0.9,
+        }
     )
     
     # 創建RAG鏈
